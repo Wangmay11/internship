@@ -1,110 +1,57 @@
 import os
 import shutil
+import csv
 
-# a text file to remember log for the undo
-LOG_FILE = "undo_data.txt"
+def organize_folder():
+    #input
+    folder_path = input("Enter folder path: ").strip().replace('"', '')
 
-def organize_me():
-    folder_path = input("Paste the folder path here: ").strip().replace('"', '')
-    
     if not os.path.exists(folder_path):
-        print("That folder doesn't exist!")
+        print("Folder not found!")
         return
 
-    # Get all files in the folder
-    files = os.listdir(folder_path)
+    # Loop
+    for file_name in os.listdir(folder_path):
+        full_path = os.path.join(folder_path, file_name)
 
-    for f in files:
-        full_path = os.path.join(folder_path, f)
-
-        # skip folders, we only want files
-        if os.path.isdir(full_path):
-            continue
-        
-        # skip own file log if in the same folder
-        if f == LOG_FILE:
+        # Skip if  folder 
+        if os.path.isdir(full_path) or file_name == "history.csv":
             continue
 
-        # extension call
-        name, ext = os.path.splitext(f)
+        # Detect file types
+        name, ext = os.path.splitext(file_name)
         ext = ext.lower()
 
-        # Decides the folder
-        subfolder = "Other" # default
         if ext in ['.jpg', '.jpeg', '.png', '.gif']:
-            subfolder = "Images"
-        elif ext in ['.pdf', '.docx', '.txt', '.xlsx', '.csv']:
-            subfolder = "Documents"
-        elif ext in ['.mp4', '.mov', '.avi']:
-            subfolder = "Videos"
+            category = "Images"
+        elif ext in ['.pdf', '.docx', '.txt', '.xlsx']:
+            category = "Documents"
+        elif ext in ['.mp4', '.mkv', '.mov']:
+            category = "Videos"
         elif ext in ['.zip', '.rar']:
-            subfolder = "Archives"
+            category = "Archives"
+        else:
+            category = "Others"
 
-        # Create the subfolder path
-        target_dir = os.path.join(folder_path, subfolder)
-        if not os.path.exists(target_dir):
-            os.mkdir(target_dir)
+        #Create folder
+        dest_folder = os.path.join(folder_path, category)
+        if not os.path.exists(dest_folder):
+            os.makedirs(dest_folder)
 
-        # Handling if file already exists 
-        final_destination = os.path.join(target_dir, f)
-        if os.path.exists(final_destination):
-            final_destination = os.path.join(target_dir, name + "_new" + ext)
+        #Handle duplicates
+        target_path = os.path.join(dest_folder, file_name)
+        if os.path.exists(target_path):
+            target_path = os.path.join(dest_folder, name + "_copy" + ext)
 
-        # Move file
+        #Move and Record in CSV
         try:
-            shutil.move(full_path, final_destination)
-            
-            # Save the move to our log for undo
-            # Format: CurrentPath|OldPath
-            with open(LOG_FILE, "a") as my_log:
-                my_log.write(final_destination + "|" + full_path + "\n")
-                
-            print(f"Moved {f} to {subfolder}")
+            shutil.move(full_path, target_path)
+            with open("history.csv", "a", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow([file_name, category])
+            print("Moved:", file_name)
         except:
-            print(f"Could not move {f}")
+            print("Error moving:", file_name)
 
-def undo_everything():
-    if not os.path.exists(LOG_FILE):
-        print("Nothing to undo.")
-        return
-
-    with open(LOG_FILE, "r") as my_log:
-        lines = my_log.readlines()
-
-    if not lines:
-        print("Log is empty.")
-        return
-
-    print("Undoing moves...")
-    # Reverse the lines to move back the last things first
-    for line in reversed(lines):
-        parts = line.strip().split("|")
-        if len(parts) == 2:
-            now_at = parts[0]
-            was_at = parts[1]
-            if os.path.exists(now_at):
-                shutil.move(now_at, was_at)
-                print(f"Moved back: {os.path.basename(was_at)}")
-
-    # Delete log content after undo
-    open(LOG_FILE, "w").close()
-    print("All back to normal!")
-
-# choice
-while True:
-    print("\n--- MY FOLDER CLEANER ---")
-    print("1. Organize")
-    print("2. Undo")
-    print("3. Exit")
-    
-    cmd = input("Pick 1, 2, or 3: ")
-    
-    if cmd == "1":
-        organize_me()
-    elif cmd == "2":
-        undo_everything()
-    elif cmd == "3":
-        print("wasted")
-        break
-    else:
-        print("Wrong input!")
+if __name__ == "__main__":
+    organize_folder()
